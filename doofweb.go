@@ -15,7 +15,7 @@ type W2GServer struct {
 	DBUrl   string
 	Addr    string
 	Resp404 string
-	Paths   map[string]interface{}
+	Paths   map[string]ViewFunc
 	dbpool  *pgxpool.Pool
 }
 
@@ -25,11 +25,13 @@ type W2GViewData struct {
 	DBPool *pgxpool.Pool
 }
 
+type ViewFunc func(*W2GViewData) error
+
 func (w2gs W2GServer) RunServer() {
 	var err error
 	fmt.Println("Setting up server")
 	if w2gs.DBUrl != "" {
-		w2gs.dbpool, err = pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
+		w2gs.dbpool, err = pgxpool.New(context.Background(), w2gs.DBUrl)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
 			os.Exit(1)
@@ -55,11 +57,21 @@ func (w2gs W2GServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	fmt.Println()
 	viewfunc, ok := w2gs.Paths[req.URL.Path]
 	if ok {
-		viewfunc.(func(*W2GViewData))(&viewdata)
+		//err := viewfunc.(func(*W2GViewData))(&viewdata)
+		err := viewfunc(&viewdata)
+    if err != nil{
+      do500(resp,req)
+    }
 	} else {
 		do404(resp, req)
 	}
 }
+
+func do500(resp http.ResponseWriter, req *http.Request) {
+	resp.WriteHeader(500)
+	resp.Write([]byte("500 Internal Server Error: The server encountered an unexpected condition that prevented it from fulfilling the request"))
+}
+  
 
 func do404(resp http.ResponseWriter, req *http.Request) {
 	resp.WriteHeader(404)
