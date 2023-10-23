@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"os"
 	"time"
-
+  "errors"
+  "io"
+  "encoding/json"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -26,6 +28,23 @@ type W2GViewData struct {
 }
 
 type ViewFunc func(*W2GViewData) error
+
+func (vd *W2GViewData) UnmarshalJsonBody(dest any) error {
+  bodybytes, err := io.ReadAll(vd.Req.Body)
+ 	if err != nil {
+		fmt.Println("Failed on ReadAll for UnmarshalJsonBody")
+    return errors.New("failed to readall request body in UnmarshalJsonBody")
+	}
+  fmt.Println(string(bodybytes[:]))
+  err = json.Unmarshal(bodybytes, dest)
+  if err != nil{
+    fmt.Println(err)
+    return err
+  }
+  fmt.Println(dest)
+  return nil
+
+}
 
 func (w2gs W2GServer) RunServer() {
 	var err error
@@ -71,7 +90,6 @@ func do500(resp http.ResponseWriter, req *http.Request) {
 	resp.WriteHeader(500)
 	resp.Write([]byte("500 Internal Server Error: The server encountered an unexpected condition that prevented it from fulfilling the request"))
 }
-  
 
 func do404(resp http.ResponseWriter, req *http.Request) {
 	resp.WriteHeader(404)
